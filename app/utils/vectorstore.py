@@ -1,9 +1,23 @@
+
+
+
+
+import logging
+
 from langfuse import observe
 
 from app.observability.tracing import langfuse
 
-# In-memory store: list of (text, embedding) tuples
+logger = logging.getLogger(__name__)
+
 _store: list = []
+
+
+def _safe_langfuse(fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except Exception as e:
+        logger.warning(f"Langfuse call failed (non-blocking): {e}")
 
 
 def upsert_vector(text: str, emb: list) -> None:
@@ -12,13 +26,9 @@ def upsert_vector(text: str, emb: list) -> None:
 
 @observe(as_type="retriever", name="vector-search")
 def search_vector(query_embedding: list) -> str:
-    """
-    Retrieve the most relevant chunk and track as a Langfuse *retriever* span.
-
-    Replace with a real vector DB (Pinecone, Weaviate, pgvector…) when ready.
-    """
     if not _store:
-        langfuse.update_current_span(
+        _safe_langfuse(
+            langfuse.update_current_span,
             output={"retrieved_chunks": [], "total_chunks": 0},
             level="WARNING",
             status_message="Vector store is empty",
@@ -27,7 +37,8 @@ def search_vector(query_embedding: list) -> str:
 
     result = _store[0][0]
 
-    langfuse.update_current_span(
+    _safe_langfuse(
+        langfuse.update_current_span,
         output={"retrieved_chunks": [result], "total_chunks": len(_store)},
         metadata={"store_size": len(_store), "strategy": "first-match-mock"},
     )
