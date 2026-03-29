@@ -7,7 +7,8 @@ def get_conn():
         host=settings.DB_HOST,
         user=settings.DB_USER,
         password=settings.DB_PASSWORD,
-        database=settings.DB_NAME
+        database=settings.DB_NAME,
+        connection_timeout=5,
     )
 
 def insert_log(data):
